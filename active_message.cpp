@@ -184,6 +184,40 @@ auto apply(Function&& f, Tuple&& t)
 
 struct active_message
 {
+  public:
+    template<class FunctionPtr, class... Args>
+    explicit active_message(FunctionPtr func, Args... args)
+      : message_(pack(&unpack_and_invoke<FunctionPtr,Args...>, func, args...))
+    {}
+
+    active_message(char* message, size_t num_bytes)
+      : message_(message, num_bytes)
+    {}
+
+    size_t size() const
+    {
+      return message_.size();
+    }
+
+    void* data() const
+    {
+      return const_cast<char*>(message_.data());
+    }
+
+    void activate() const
+    {
+      std::stringstream is(message_);
+
+      // extract a function_ptr_type from the beginning of the buffer
+      input_archive archive(is);
+      using function_ptr_type = void (*)(input_archive&);
+      function_ptr_type invoke_me = nullptr;
+      archive(invoke_me);
+
+      // invoke the function pointer on the remaining data
+      invoke_me(archive);
+    }
+
   private:
     template<class FunctionPtr, class... Args>
     static void unpack_and_invoke(input_archive& archive)
@@ -214,47 +248,12 @@ struct active_message
       return os.str();
     }
 
-  public:
-    template<class FunctionPtr, class... Args>
-    explicit active_message(FunctionPtr func, Args... args)
-      : message_(pack(&unpack_and_invoke<FunctionPtr,Args...>, func, args...))
-    {}
-
-    active_message(void* buffer, size_t num_bytes)
-      : message_(reinterpret_cast<char*>(buffer), num_bytes)
-    {}
-
-    size_t size() const
-    {
-      return message_.size();
-    }
-
-    void* data() const
-    {
-      return const_cast<char*>(message_.data());
-    }
-
-    void activate() const
-    {
-      std::stringstream is(message_);
-
-      // extract a function_ptr_type from the beginning of the buffer
-      input_archive archive(is);
-      using function_ptr_type = void (*)(input_archive&);
-      function_ptr_type invoke_me = nullptr;
-      archive(invoke_me);
-
-      // invoke the function pointer on the remaining data
-      invoke_me(archive);
-    }
-
-  private:
     std::string message_;
 };
 
 void active_message_handler(void* data_buffer, size_t buffer_size, int calling_pe, shmemx_am_token_t token)
 {
-  active_message message(data_buffer, buffer_size);
+  active_message message(reinterpret_cast<char*>(data_buffer), buffer_size);
 
   message.activate();
 }
