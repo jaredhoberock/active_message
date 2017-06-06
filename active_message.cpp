@@ -199,9 +199,9 @@ struct active_message
       return message_.size();
     }
 
-    void* data() const
+    const char* data() const
     {
-      return const_cast<char*>(message_.data());
+      return message_.data();
     }
 
     void activate() const
@@ -272,12 +272,12 @@ int main()
   if(shmem_my_pe() == 0)
   {
     active_message message(hello_world, 7);
-    shmemx_am_request(1, 0, message.data(), message.size());
+    shmemx_am_request(1, 0, const_cast<char*>(message.data()), message.size());
   }
   else
   {
     active_message message(hello_world, 13);
-    shmemx_am_request(0, 0, message.data(), message.size());
+    shmemx_am_request(0, 0, const_cast<char*>(message.data()), message.size());
   }
 
   shmemx_am_quiet();
