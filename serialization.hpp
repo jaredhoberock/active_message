@@ -180,16 +180,6 @@ class any
       return result;
     }
 
-    const char* data() const
-    {
-      return representation_.data();
-    }
-
-    size_t size() const
-    {
-      return representation_.size();
-    }
-
   private:
     std::string representation_;
 };
@@ -222,16 +212,6 @@ class serializable_closure
     explicit serializable_closure(FunctionPtr func, Args... args)
       : serialized_(serialize_function_and_arguments(&deserialize_and_invoke<FunctionPtr,Args...>, func, args...))
     {}
-
-    size_t size() const
-    {
-      return serialized_.size();
-    }
-
-    const char* data() const
-    {
-      return serialized_.data();
-    }
 
     any operator()() const
     {

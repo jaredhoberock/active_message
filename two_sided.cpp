@@ -53,16 +53,6 @@ class active_message
       : message_(func, args...)
     {}
 
-    size_t size() const
-    {
-      return message_.size();
-    }
-
-    const char* data() const
-    {
-      return message_.data();
-    }
-
     any activate() const
     {
       return message_();
@@ -110,9 +100,6 @@ class two_sided_active_message : private active_message
     two_sided_active_message(FunctionPtr1 reply_func, FunctionPtr2 func, Args... args)
       : super_t(&invoke_and_return_active_message_reply<FunctionPtr1,FunctionPtr2,Args...>, reply_func, func, args...)
     {}
-
-    using super_t::data;
-    using super_t::size;
 
     active_message activate() const
     {
