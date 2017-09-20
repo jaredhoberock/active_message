@@ -3,6 +3,7 @@
 #include <iostream>
 #include <tuple>
 #include <string>
+#include "string_view_stream.hpp"
 
 
 #define __REQUIRES(...) typename std::enable_if<(__VA_ARGS__)>::type* = nullptr
@@ -315,4 +316,27 @@ class serializable_closure
 
     std::string serialized_;
 };
+
+
+template<class T>
+std::string to_string(const T& value)
+{
+  std::stringstream os;
+  output_archive ar(os);
+  ar(value);
+  return os.str();
+}
+
+
+template<class T>
+T from_string(const char* string, std::size_t size)
+{
+  T result;
+
+  string_view_stream is(string, size);
+  input_archive ar(is);
+  ar(result);
+
+  return result;
+}
 

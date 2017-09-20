@@ -42,40 +42,44 @@
 #include "serialization.hpp"
 
 
-struct active_message
+class active_message
 {
   public:
+    active_message() = default;
+
     template<class FunctionPtr, class... Args>
     explicit active_message(FunctionPtr func, Args... args)
       : message_(func, args...)
     {}
-
-    active_message(char* message, size_t num_bytes)
-      : message_(message, num_bytes)
-    {}
-
-    size_t size() const
-    {
-      return message_.size();
-    }
-
-    const char* data() const
-    {
-      return message_.data();
-    }
 
     any activate() const
     {
       return message_();
     }
 
+    template<class OutputArchive>
+    friend void serialize(OutputArchive& ar, const active_message& self)
+    {
+      ar(self.message_);
+    }
+
+    template<class InputArchive>
+    friend void deserialize(InputArchive& ar, active_message& self)
+    {
+      ar(self.message_);
+    }
+
+  private:
     serializable_closure message_;
 };
 
-void active_message_handler(void* data_buffer, size_t buffer_size, int calling_pe, shmemx_am_token_t token)
+void active_message_handler(void* data_buffer_, size_t buffer_size, int calling_pe, shmemx_am_token_t token)
 {
-  active_message message(reinterpret_cast<char*>(data_buffer), buffer_size);
+  // get the message
+  const char* data_buffer = reinterpret_cast<const char*>(const_cast<const void*>(data_buffer_));
+  active_message message = from_string<active_message>(data_buffer, buffer_size);
 
+  // activate the message
   message.activate();
 }
 
@@ -93,12 +97,18 @@ int main()
   if(shmem_my_pe() == 0)
   {
     active_message message(hello_world, 7);
-    shmemx_am_request(1, 0, const_cast<char*>(message.data()), message.size());
+
+    // serialize and transmit message
+    std::string serialized = to_string(message);
+    shmemx_am_request(1, 0, const_cast<char*>(serialized.data()), serialized.size());
   }
   else
   {
     active_message message(hello_world, 13);
-    shmemx_am_request(0, 0, const_cast<char*>(message.data()), message.size());
+
+    // serialize and transmit message
+    std::string serialized = to_string(message);
+    shmemx_am_request(0, 0, const_cast<char*>(serialized.data()), serialized.size());
   }
 
   shmemx_am_quiet();

@@ -122,39 +122,26 @@ class two_sided_active_message : private active_message
 
 void active_message_handler(void* data_buffer_, size_t buffer_size, int calling_pe, shmemx_am_token_t token)
 {
-  // deserialize the message
-  two_sided_active_message message;
-  {
-    const char* data_buffer = reinterpret_cast<const char*>(const_cast<const void*>(data_buffer_));
-    string_view_stream is(data_buffer, buffer_size);
-    input_archive ar(is);
-    ar(message);
-  }
+  // get the message
+  const char* data_buffer = reinterpret_cast<const char*>(const_cast<const void*>(data_buffer_));
+  two_sided_active_message message = from_string<two_sided_active_message>(data_buffer, buffer_size);
 
+  // activate the message and get the reply
   active_message reply = message.activate();
 
-  {
-    // serialize and transmit reply
-    std::stringstream os;
-    output_archive ar(os);
-    ar(reply);
-    std::string serialized = os.str();
-    shmemx_am_reply(1, const_cast<char*>(serialized.data()), serialized.size(), token);
-  }
+  // transmit reply
+  std::string serialized = to_string(reply);
+  shmemx_am_reply(1, const_cast<char*>(serialized.data()), serialized.size(), token);
 }
 
 
 void active_message_reply_handler(void *data_buffer_, size_t buffer_size, int calling_pe, shmemx_am_token_t token)
 {
-  // deserialize the reply
-  active_message reply;
-  {
-    const char* data_buffer = reinterpret_cast<const char*>(const_cast<const void*>(data_buffer_));
-    string_view_stream is(data_buffer, buffer_size);
-    input_archive ar(is);
-    ar(reply);
-  }
+  // get the reply
+  const char* data_buffer = reinterpret_cast<const char*>(const_cast<const void*>(data_buffer_));
+  active_message reply = from_string<active_message>(data_buffer, buffer_size);
 
+  // activate it
   reply.activate();
 }
 
@@ -186,10 +173,7 @@ int main()
     two_sided_active_message message(reply, hello_world, 7);
 
     // serialize and transmit message
-    std::stringstream os;
-    output_archive ar(os);
-    ar(message);
-    std::string serialized = os.str();
+    std::string serialized = to_string(message);
     shmemx_am_request(1, 0, const_cast<char*>(serialized.data()), serialized.size());
   }
 
