@@ -31,14 +31,9 @@
 
 #include <shmemx.h>
 #include <iostream>
-#include <cassert>
-#include <thread>
-#include <cstring>
-#include <vector>
-#include <sstream>
 #include <utility>
-#include <type_traits>
 
+#include <string>
 #include "active_message.hpp"
 
 
