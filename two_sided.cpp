@@ -40,6 +40,8 @@
 #include <type_traits>
 
 #include "serialization.hpp"
+#include "string_view_stream.hpp"
+
 
 class active_message
 {
@@ -137,8 +139,7 @@ void active_message_handler(void* data_buffer_, size_t buffer_size, int calling_
   two_sided_active_message message;
   {
     const char* data_buffer = reinterpret_cast<const char*>(const_cast<const void*>(data_buffer_));
-    std::string serialized_message(data_buffer, buffer_size);
-    std::stringstream is(serialized_message);
+    string_view_stream is(data_buffer, buffer_size);
     input_archive ar(is);
     ar(message);
   }
@@ -162,8 +163,7 @@ void active_message_reply_handler(void *data_buffer_, size_t buffer_size, int ca
   active_message reply;
   {
     const char* data_buffer = reinterpret_cast<const char*>(const_cast<const void*>(data_buffer_));
-    std::string serialized_reply(data_buffer, buffer_size);
-    std::stringstream is(serialized_reply);
+    string_view_stream is(data_buffer, buffer_size);
     input_archive ar(is);
     ar(reply);
   }
