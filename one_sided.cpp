@@ -39,39 +39,8 @@
 #include <utility>
 #include <type_traits>
 
-#include "serialization.hpp"
+#include "active_message.hpp"
 
-
-class active_message
-{
-  public:
-    active_message() = default;
-
-    template<class FunctionPtr, class... Args>
-    explicit active_message(FunctionPtr func, Args... args)
-      : message_(func, args...)
-    {}
-
-    any activate() const
-    {
-      return message_();
-    }
-
-    template<class OutputArchive>
-    friend void serialize(OutputArchive& ar, const active_message& self)
-    {
-      ar(self.message_);
-    }
-
-    template<class InputArchive>
-    friend void deserialize(InputArchive& ar, active_message& self)
-    {
-      ar(self.message_);
-    }
-
-  private:
-    serializable_closure message_;
-};
 
 void active_message_handler(void* data_buffer_, size_t buffer_size, int calling_pe, shmemx_am_token_t token)
 {
