@@ -26,8 +26,9 @@
 
 // $ ./openshmem-am-root/bin/oshc++ -std=c++14 two_sided.cpp 
 // $ ./openshmem-am-root/bin/oshrun ./a.out -n 2
-// Hello, world from PE 1 with value 7!
-// Hello, world from PE 0 with value 13!
+// PE 1: Hello, world with value 7!
+// PE 0: received 13
+
 
 #include <shmemx.h>
 #include <iostream>
