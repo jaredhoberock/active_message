@@ -77,7 +77,7 @@ using is_invocable = typename is_invocable_impl<Function,Args...>::type;
 template<class Function, class... Args>
 struct invoke_result
 {
-  using type = decltype(std::declval<Function>(std::declval<Args>()...));
+  using type = decltype(std::declval<Function>()(std::declval<Args>()...));
 };
 
 template<class Function, class... Args>
