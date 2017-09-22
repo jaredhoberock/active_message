@@ -88,7 +88,8 @@ int main()
 
   if(shmem_my_pe() == 0)
   {
-    two_sided_active_message message(reply, hello_world, 7);
+    two_sided_active_message message(hello_world, std::make_tuple(7),
+                                     reply, std::make_tuple());
 
     // serialize and transmit message
     std::string serialized = to_string(message);
@@ -96,7 +97,5 @@ int main()
   }
 
   shmemx_am_quiet();
-
-  shmem_barrier_all();
 }
 

@@ -29,7 +29,9 @@
 #include <iostream>
 #include <tuple>
 #include <string>
+#include <typeinfo>
 #include "string_view_stream.hpp"
+#include "tuple.hpp"
 
 
 #define __REQUIRES(...) typename std::enable_if<(__VA_ARGS__)>::type* = nullptr
@@ -71,6 +73,16 @@ void deserialize(InputArchive& ar, T& value)
   ar.stream() >> value >> std::ws;
 }
 
+template<class InputArchive, class T,
+         __REQUIRES(!std::is_void<T>::value)>
+void deserialize(InputArchive& ar, T*& ptr)
+{
+  void* void_ptr = nullptr;
+  deserialize(ar, void_ptr);
+
+  ptr = reinterpret_cast<T*>(void_ptr);
+}
+
 template<class InputArchive, class Result, class... Args>
 void deserialize(InputArchive& ar, Result (*&fun_ptr)(Args...))
 {
@@ -92,6 +104,25 @@ void deserialize(InputArchive& ar, std::string& s)
 
   // read characters from the stream
   ar.stream().read(&s.front(), length);
+}
+
+
+template<size_t Index, class OutputArchive, class... Ts, __REQUIRES(Index == sizeof...(Ts))>
+void serialize_tuple_impl(OutputArchive& ar, const std::tuple<Ts...>& tuple)
+{
+}
+
+template<size_t Index, class OutputArchive, class... Ts, __REQUIRES(Index < sizeof...(Ts))>
+void serialize_tuple_impl(OutputArchive& ar, const std::tuple<Ts...>& tuple)
+{
+  serialize(ar, std::get<Index>(tuple));
+  serialize_tuple_impl<Index+1>(ar, tuple);
+}
+
+template<class OutputArchive, class... Ts>
+void serialize(OutputArchive& ar, const std::tuple<Ts...>& tuple)
+{
+  serialize_tuple_impl<0>(ar, tuple);
 }
 
 
@@ -267,31 +298,6 @@ class serializable_closure
     }
 
   private:
-    template<size_t... Indices, class T, class... Ts>
-    static std::tuple<Ts...> tail_impl(std::index_sequence<Indices...>, const std::tuple<T,Ts...>& t)
-    {
-      return std::tuple<Ts...>(std::get<1 + Indices>(t)...);
-    }
-    
-    template<class T, class... Ts>
-    static std::tuple<Ts...> tail(const std::tuple<T,Ts...>& t)
-    {
-      return tail_impl(std::make_index_sequence<sizeof...(Ts)>(), t);
-    }
-    
-    template<size_t... Indices, class Function, class Tuple>
-    static auto apply_impl(std::index_sequence<Indices...>, Function&& f, Tuple&& t)
-    {
-      return std::forward<Function>(f)(std::get<Indices>(std::forward<Tuple>(t))...);
-    }
-    
-    template<class Function, class Tuple>
-    static auto apply(Function&& f, Tuple&& t)
-    {
-      static constexpr size_t num_args = std::tuple_size<std::decay_t<Tuple>>::value;
-      return apply_impl(std::make_index_sequence<num_args>(), std::forward<Function>(f), std::forward<Tuple>(t));
-    }
-
     template<class Function, class Tuple,
              class ApplyResult = decltype(apply(std::declval<Function&&>(), std::declval<Tuple&&>())),
              __REQUIRES(std::is_void<ApplyResult>::value)

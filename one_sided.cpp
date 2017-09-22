@@ -75,7 +75,5 @@ int main()
   }
 
   shmemx_am_quiet();
-
-  shmem_barrier_all();
 }
 

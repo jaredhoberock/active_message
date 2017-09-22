@@ -27,6 +27,8 @@
 #pragma once
 
 #include "serialization.hpp"
+#include "tuple.hpp"
+
 
 class active_message
 {
@@ -68,22 +70,43 @@ class two_sided_active_message : private active_message
     // two_sided_active_message's constructor initializes the base active_message class with this function
     // as the function to call. The user's functions and arguments passed to two_sided_active_message's constructor are this function's arguments.
     // the result of this function is an active_message containing the reply
-    template<class FunctionPtr1, class FunctionPtr2, class... Args>
-    static active_message invoke_and_return_active_message_reply(FunctionPtr1 reply_func, FunctionPtr2 func, Args... args)
+    template<class FunctionPtr1, class Tuple1,
+             class FunctionPtr2, class Tuple2>
+    static active_message apply_and_return_active_message_reply(FunctionPtr1 func,       const Tuple1& args1,
+                                                                FunctionPtr2 reply_func, const Tuple2& args2)
     {
-      // invoke the user's function
-      auto user_result = func(args...);
+      // XXX need to handle the case where user_result is void
+
+      // apply the user's function to the first tuple
+      auto user_result = apply(func, args1);
+
+      // concatenate reply_func, user_result, and args2 into a single tuple
+      auto constructor_args = std::tuple_cat(std::make_tuple(reply_func, user_result), args2);
 
       // make an active_message containing the reply
-      return active_message(reply_func, user_result);
+      return make_from_tuple<active_message>(constructor_args);
     }
+
 
   public:
     two_sided_active_message() = default;
 
-    template<class FunctionPtr1, class FunctionPtr2, class... Args>
-    two_sided_active_message(FunctionPtr1 reply_func, FunctionPtr2 func, Args... args)
-      : super_t(&invoke_and_return_active_message_reply<FunctionPtr1,FunctionPtr2,Args...>, reply_func, func, args...)
+    template<class FunctionPtr1, class Tuple1,
+             class FunctionPtr2, class... Args2,
+
+             // auto func_result = func(args1...) must be well-formed
+             __REQUIRES(can_apply<FunctionPtr1,Tuple1>::value),
+
+             class Result1 = apply_result_t<FunctionPtr1,Tuple1>,
+
+             // reply_func(func_result, args2...) must be well-formed
+             // XXX need to handle the case where Result1 is void
+             __REQUIRES(is_invocable<FunctionPtr2,Result1,Args2...>::value)
+            >
+    two_sided_active_message(FunctionPtr1 func,       const Tuple1& args1,
+                             FunctionPtr2 reply_func, const std::tuple<Args2...>& args2)
+      : super_t(&apply_and_return_active_message_reply<FunctionPtr1,Tuple1,FunctionPtr2,std::tuple<Args2...>>,
+                func, args1, reply_func, args2)
     {}
 
     active_message activate() const
