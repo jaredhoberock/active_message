@@ -161,12 +161,9 @@ class shmem_context
     }
 
     template<class T>
-    static int fulfill_promise(T result, int which)
+    static void fulfill_promise(T result, int which)
     {
       unfulfilled_promises<T>().fulfill(which, std::move(result));
-
-      // XXX eliminate this superfluous return
-      return 0;
     }
 };
 
