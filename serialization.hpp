@@ -30,6 +30,7 @@
 #include <tuple>
 #include <string>
 #include <typeinfo>
+#include <sstream>
 #include "string_view_stream.hpp"
 #include "tuple.hpp"
 
