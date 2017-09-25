@@ -95,6 +95,7 @@ class two_sided_active_message : private active_message
   public:
     two_sided_active_message() = default;
 
+    // XXX we also need to require that the result of Function1 is serializable/deserializable
     template<class Function1, class Tuple1,
              class Function2, class... Args2,
 
