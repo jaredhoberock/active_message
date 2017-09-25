@@ -30,6 +30,13 @@
 // PE 1: Hello, world!
 // PE 0: Future satisfied with result 13
 
+// oshc++-free build command:
+// g++ -std=c++14 -Iopenshmem-am-root/include executor.cpp -Lopenshmem-am-root/lib -lopenshmem -Lgasnet-root/lib -lgasnet-smp-par -lpthread -lrt -lelf
+// $ ./openshmem-am-root/bin/oshrun ./a.out -n 2
+// PE 0: Waiting on future
+// PE 1: Hello, world!
+// PE 0: Future satisfied with result 13
+
 
 #include <iostream>
 #include <future>
