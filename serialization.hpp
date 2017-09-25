@@ -256,6 +256,65 @@ void deserialize(InputArchive& ar, any& a)
 }
 
 
+template<class... Conditions>
+struct conjunction;
+
+template<>
+struct conjunction<> : std::true_type {};
+
+template<class Condition, class... Conditions>
+struct conjunction<Condition, Conditions...>
+  : std::integral_constant<
+      bool,
+      Condition::value && conjunction<Conditions...>::value
+    >
+{};
+
+
+template<class T>
+struct can_serialize_impl
+{
+  template<class U,
+           class Result = decltype(serialize(std::declval<output_archive&>(), std::declval<U>()))
+          >
+  static std::true_type test(int);
+
+  template<class>
+  static std::false_type test(...);
+
+  using type = decltype(test<T>(0));
+};
+
+template<class T>
+using can_serialize = typename can_serialize_impl<T>::type;
+
+template<class... Ts>
+using can_serialize_all = conjunction<can_serialize<Ts>...>;
+
+
+template<class T>
+struct can_deserialize_impl
+{
+  template<class U,
+           class Result = decltype(deserialize(std::declval<input_archive&>(), std::declval<U&>()))
+          >
+  static std::true_type test(int);
+
+  template<class>
+  static std::false_type test(...);
+
+  using type = decltype(test<T>(0));
+};
+
+template<class T>
+using can_deserialize = typename can_deserialize_impl<T>::type;
+
+
+template<class... Ts>
+using can_deserialize_all = conjunction<can_deserialize<Ts>...>;
+
+
+
 class serializable_closure
 {
   private:
@@ -266,9 +325,13 @@ class serializable_closure
       : serializable_closure(&noop_function)
     {}
 
-    template<class FunctionPtr, class... Args>
-    explicit serializable_closure(FunctionPtr func, Args... args)
-      : serialized_(serialize_function_and_arguments(&deserialize_and_invoke<FunctionPtr,Args...>, func, args...))
+    template<class Function, class... Args,
+             __REQUIRES(can_serialize_all<Function,Args...>::value),
+             __REQUIRES(can_deserialize_all<Function,Args...>::value),
+             __REQUIRES(is_invocable<Function,Args...>::value)
+            >
+    explicit serializable_closure(Function func, Args... args)
+      : serialized_(serialize_function_and_arguments(&deserialize_and_invoke<Function,Args...>, func, args...))
     {}
 
     any operator()() const
@@ -371,62 +434,4 @@ T from_string(const char* string, std::size_t size)
 
   return result;
 }
-
-
-template<class... Conditions>
-struct conjunction;
-
-template<>
-struct conjunction<> : std::true_type {};
-
-template<class Condition, class... Conditions>
-struct conjunction<Condition, Conditions...>
-  : std::integral_constant<
-      bool,
-      Condition::value && conjunction<Conditions...>::value
-    >
-{};
-
-
-template<class T>
-struct can_serialize_impl
-{
-  template<class U,
-           class Result = decltype(serialize(std::declval<output_archive&>(), std::declval<U>()))
-          >
-  static std::true_type test(int);
-
-  template<class>
-  static std::false_type test(...);
-
-  using type = decltype(test<T>(0));
-};
-
-template<class T>
-using can_serialize = typename can_serialize_impl<T>::type;
-
-template<class... Ts>
-using can_serialize_all = conjunction<can_serialize<Ts>...>;
-
-
-template<class T>
-struct can_deserialize_impl
-{
-  template<class U,
-           class Result = decltype(deserialize(std::declval<input_archive&>(), std::declval<U&>()))
-          >
-  static std::true_type test(int);
-
-  template<class>
-  static std::false_type test(...);
-
-  using type = decltype(test<T>(0));
-};
-
-template<class T>
-using can_deserialize = typename can_deserialize_impl<T>::type;
-
-
-template<class... Ts>
-using can_deserialize_all = conjunction<can_deserialize<Ts>...>;
 
