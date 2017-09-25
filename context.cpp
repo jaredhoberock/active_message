@@ -24,11 +24,11 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// $ ./openshmem-am-root/bin/oshc++ -std=c++14 shmem_context.cpp 
+// $ ./openshmem-am-root/bin/oshc++ -std=c++14 context.cpp 
 // $ ./openshmem-am-root/bin/oshrun ./a.out -n 2
+// PE 0: Waiting on future
 // PE 1: Hello, world with value 7!
-// PE 0: received 13
-
+// PE 0: Future satisfied
 
 #include <shmemx.h>
 #include <iostream>
@@ -37,6 +37,7 @@
 #include <future>
 #include <tuple>
 #include <unordered_map>
+#include <type_traits>
 
 #include "active_message.hpp"
 
@@ -51,18 +52,27 @@ class shmem_context
       shmemx_am_attach(reply_handler_id_, two_sided_active_message_reply_handler);
     }
 
-    // XXX SerializableArgs should be forwarding references and they should be decay copied like std::async()
-    template<class FunctionPtr, class... SerializableArgs,
-             __REQUIRES(is_invocable<FunctionPtr,SerializableArgs...>::value)>
-    std::future<invoke_result_t<FunctionPtr,SerializableArgs...>> two_sided_execute(int which_pe, FunctionPtr f, const SerializableArgs&... args)
+  private:
+    template<class Arg>
+    static typename std::decay<Arg>::type decay_copy(Arg&& arg)
     {
-      using result_type = invoke_result_t<FunctionPtr,SerializableArgs...>;
+      return std::forward<Arg>(arg);
+    }
+
+  public:
+    template<class FunctionPtr, class... Args,
+             __REQUIRES(is_invocable<FunctionPtr,typename std::decay<Args>::type...>::value)
+            >
+    std::future<invoke_result_t<FunctionPtr,typename std::decay<Args>::type...>>
+      two_sided_execute(int which_pe, FunctionPtr f, Args&&... args)
+    {
+      using result_type = invoke_result_t<FunctionPtr,typename std::decay<Args>::type...>;
 
       // create a new unfulfilled promise
       std::pair<int, std::future<result_type>> id_and_future = unfulfilled_promises<result_type>().add();
 
       // create a message
-      two_sided_active_message message(f, std::make_tuple(args...), &fulfill_promise<result_type>, std::make_tuple(id_and_future.first));
+      two_sided_active_message message(f, std::make_tuple(decay_copy(std::forward<Args>(args))...), &fulfill_promise<result_type>, std::make_tuple(id_and_future.first));
 
       // serialize the message
       std::string serialized_message = to_string(message);
