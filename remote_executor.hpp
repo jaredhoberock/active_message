@@ -31,6 +31,8 @@
 #include <stdexcept>
 
 
+// XXX since it's legal to create a remote_executor referring to one's own node (i.e., the local node),
+//     perhaps this should have some other name such as node_executor
 class remote_executor
 {
   public:
