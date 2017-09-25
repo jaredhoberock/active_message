@@ -46,6 +46,11 @@ class execution_context
       shmemx_am_attach(reply_handler_id_, two_sided_active_message_reply_handler);
     }
 
+    inline int node_count() const
+    {
+      return shmem_n_pes();
+    }
+
   private:
     template<class Arg>
     static typename std::decay<Arg>::type decay_copy(Arg&& arg)

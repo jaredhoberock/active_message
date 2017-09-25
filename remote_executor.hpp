@@ -28,13 +28,20 @@
 
 #include "serialization.hpp"
 #include "execution_context.hpp"
+#include <stdexcept>
+
 
 class remote_executor
 {
   public:
     inline explicit remote_executor(int node)
       : node_(node)
-    {}
+    {
+      if(this->node() >= context().node_count())
+      {
+        throw std::runtime_error("Invalid node index.");
+      }
+    }
 
     inline remote_executor()
       : remote_executor(0)
