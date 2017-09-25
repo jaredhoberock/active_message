@@ -372,3 +372,61 @@ T from_string(const char* string, std::size_t size)
   return result;
 }
 
+
+template<class... Conditions>
+struct conjunction;
+
+template<>
+struct conjunction<> : std::true_type {};
+
+template<class Condition, class... Conditions>
+struct conjunction<Condition, Conditions...>
+  : std::integral_constant<
+      bool,
+      Condition::value && conjunction<Conditions...>::value
+    >
+{};
+
+
+template<class T>
+struct can_serialize_impl
+{
+  template<class U,
+           class Result = decltype(serialize(std::declval<output_archive&>(), std::declval<U>()))
+          >
+  static std::true_type test(int);
+
+  template<class>
+  static std::false_type test(...);
+
+  using type = decltype(test<T>(0));
+};
+
+template<class T>
+using can_serialize = typename can_serialize_impl<T>::type;
+
+template<class... Ts>
+using can_serialize_all = conjunction<can_serialize<Ts>...>;
+
+
+template<class T>
+struct can_deserialize_impl
+{
+  template<class U,
+           class Result = decltype(deserialize(std::declval<input_archive&>(), std::declval<U&>()))
+          >
+  static std::true_type test(int);
+
+  template<class>
+  static std::false_type test(...);
+
+  using type = decltype(test<T>(0));
+};
+
+template<class T>
+using can_deserialize = typename can_deserialize_impl<T>::type;
+
+
+template<class... Ts>
+using can_deserialize_all = conjunction<can_deserialize<Ts>...>;
+

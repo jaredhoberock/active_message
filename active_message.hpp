@@ -35,8 +35,12 @@ class active_message
   public:
     active_message() = default;
 
-    template<class FunctionPtr, class... Args>
-    explicit active_message(FunctionPtr func, Args... args)
+    template<class Function, class... Args,
+             __REQUIRES(can_serialize_all<Function,Args...>::value),
+             __REQUIRES(can_deserialize_all<Function,Args...>::value),
+             __REQUIRES(is_invocable<Function,Args...>::value)
+            >
+    explicit active_message(Function func, Args... args)
       : message_(func, args...)
     {}
 
