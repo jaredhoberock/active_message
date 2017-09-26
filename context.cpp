@@ -27,11 +27,15 @@
 // $ ./openshmem-am-root/bin/oshc++ -std=c++14 context.cpp 
 // $ ./openshmem-am-root/bin/oshrun ./a.out -n 2
 // PE 0: Waiting on future
+// PE 1: Waiting for all previously submitted work to complete
 // PE 1: Hello, world with value 7!
-// PE 0: Future satisfied
+// PE 0: Hello, world with value 13!
+// PE 0: Future satisfied with result: 13
+// PE 1: All previously submitted work complete
 
 #include <iostream>
 #include <future>
+#include <cassert>
 
 #include "execution_context.hpp"
 
@@ -50,9 +54,10 @@ int main()
     std::future<int> future = system_context().two_sided_execute(1, hello_world, 7);
 
     std::cout << "PE 0: Waiting on future" << std::endl;
-    future.wait();
+    int result = future.get();
+    assert(result == 13);
 
-    std::cout << "PE 0: Future satisfied" << std::endl;
+    std::cout << "PE 0: Future satisfied with result: " << result << std::endl;
   }
   else
   {
