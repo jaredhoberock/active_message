@@ -51,10 +51,35 @@ int hello_world()
   return 13;
 }
 
+struct functor
+{
+  int value;
+
+  int operator()() const
+  {
+    std::cout << "PE " << shmem_my_pe() << ": Hello, world with value " << value << "!" << std::endl;
+    return 13;
+  }
+
+  template<class InputArchive>
+  friend void deserialize(InputArchive& ar, functor& self)
+  {
+    deserialize(ar, self.value);
+  }
+
+  template<class OutputArchive>
+  friend void serialize(OutputArchive& ar, const functor& self)
+  {
+    serialize(ar, self.value);
+  }
+};
+
 int main()
 {
   if(shmem_my_pe() == 0)
   {
+    // execute a function pointer on node 1
+
     remote_executor exec(1);
     std::future<int> future = exec.twoway_execute(hello_world);
 
@@ -62,6 +87,18 @@ int main()
     int result = future.get();
 
     std::cout << "PE 0: Future satisfied with result " << result << std::endl;
+  }
+  else
+  {
+    // execute a serializable functor on node 0
+
+    remote_executor exec(0);
+    std::future<int> future = exec.twoway_execute(functor{7});
+
+    std::cout << "PE 1: Waiting on future" << std::endl;
+    int result = future.get();
+
+    std::cout << "PE 1: Future satisfied with result " << result << std::endl;
   }
 }
 

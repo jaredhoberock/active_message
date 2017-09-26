@@ -32,6 +32,8 @@
 #include <tuple>
 #include <string>
 #include <type_traits>
+#include <thread>
+#include <atomic>
 
 #include "active_message.hpp"
 
@@ -39,33 +41,46 @@ class execution_context
 {
   public:
     execution_context()
+      : continue_polling_{true}
     {
+      // start shmem
       shmem_init();
 
+      // register handlers
       shmemx_am_attach(handler_id_, two_sided_active_message_handler);
       shmemx_am_attach(reply_handler_id_, two_sided_active_message_reply_handler);
+
+      // begin polling
+      polling_thread_ = std::thread([this]
+      {
+        while(continue_polling_)
+        {
+          shmemx_am_poll();
+          std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        }
+      });
     }
 
-    inline int node_count() const
+    ~execution_context()
+    {
+      continue_polling_ = false;
+      polling_thread_.join();
+
+      // XXX note that we don't call shmem_finalize() because it may already have been shutdown
+    }
+
+    inline std::size_t node_count() const
     {
       return shmem_n_pes();
     }
 
-  private:
-    template<class Arg>
-    static typename std::decay<Arg>::type decay_copy(Arg&& arg)
-    {
-      return std::forward<Arg>(arg);
-    }
-
-  public:
     template<class Function, class... Args,
              __REQUIRES(can_serialize_all<Function,Args...>::value),
              __REQUIRES(can_deserialize_all<Function,Args...>::value),
              __REQUIRES(is_invocable<Function,typename std::decay<Args>::type...>::value)
             >
     std::future<invoke_result_t<Function,typename std::decay<Args>::type...>>
-      two_sided_execute(int which_pe, Function f, Args&&... args)
+      two_sided_execute(std::size_t node, Function f, Args&&... args)
     {
       using result_type = invoke_result_t<Function,typename std::decay<Args>::type...>;
 
@@ -79,7 +94,7 @@ class execution_context
       std::string serialized_message = to_string(message);
 
       // transmit the serialization
-      shmemx_am_request(which_pe, handler_id_, const_cast<char*>(serialized_message.data()), serialized_message.size());
+      shmemx_am_request(node, handler_id_, const_cast<char*>(serialized_message.data()), serialized_message.size());
 
       // return the future
       return std::move(id_and_future.second);
@@ -176,15 +191,27 @@ class execution_context
     {
       unfulfilled_promises<T>().fulfill(which, std::move(result));
     }
+
+    template<class Arg>
+    static typename std::decay<Arg>::type decay_copy(Arg&& arg)
+    {
+      return std::forward<Arg>(arg);
+    }
+
+    // this flag lets the polling thread to know when to stop polling
+    std::atomic<bool> continue_polling_;
+
+    // this thread calls shmemx_am_poll, which allows other threads on this node to make progress
+    std::thread polling_thread_;
 };
 
 
-// this needs to be declared outside of system_context() for some reason,
-// probably to do with initialization order
-execution_context context;
+// this needs to be declared outside of system_context() so that
+// its constructor is called collectively by all nodes
+execution_context system_context_;
 
 inline execution_context& system_context()
 {
-  return context;
+  return system_context_;
 }
 
