@@ -54,5 +54,14 @@ int main()
 
     std::cout << "PE 0: Future satisfied" << std::endl;
   }
+  else
+  {
+    system_context().one_sided_execute(0, hello_world, 13);
+
+    std::cout << "PE 1: Waiting for all previously submitted work to complete" << std::endl;
+    system_context().wait_for_all();
+
+    std::cout << "PE 1: All previously submitted work complete" << std::endl;
+  }
 }
 
