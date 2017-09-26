@@ -36,7 +36,7 @@
 class remote_executor
 {
   public:
-    inline explicit remote_executor(int node)
+    inline explicit remote_executor(std::size_t node)
       : node_(node)
     {
       if(this->node() >= context().node_count())
@@ -65,12 +65,12 @@ class remote_executor
       return context().two_sided_execute(node(), std::forward<Function>(f));
     }
 
-    inline int node() const
+    inline std::size_t node() const
     {
       return node_;
     }
 
   private:
-    int node_;
+    std::size_t node_;
 };
 
