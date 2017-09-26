@@ -40,7 +40,7 @@
 class execution_context
 {
   public:
-    execution_context()
+    inline execution_context()
       : continue_polling_{true}
     {
       // start shmem
@@ -62,7 +62,7 @@ class execution_context
       });
     }
 
-    ~execution_context()
+    inline ~execution_context()
     {
       continue_polling_ = false;
 
@@ -129,7 +129,7 @@ class execution_context
     const static int two_sided_request_handler_id_ = 1;
     const static int two_sided_reply_handler_id_   = 2;
 
-    static void one_sided_request_handler(void* data_buffer_, size_t buffer_size, int calling_pe, shmemx_am_token_t token)
+    inline static void one_sided_request_handler(void* data_buffer_, size_t buffer_size, int calling_pe, shmemx_am_token_t token)
     {
       // deserialize the message
       const char* data_buffer = reinterpret_cast<const char*>(const_cast<const void*>(data_buffer_));
@@ -139,7 +139,7 @@ class execution_context
       message.activate();
     }
 
-    static void two_sided_request_handler(void* data_buffer_, size_t buffer_size, int calling_pe, shmemx_am_token_t token)
+    inline static void two_sided_request_handler(void* data_buffer_, size_t buffer_size, int calling_pe, shmemx_am_token_t token)
     {
       // deserialize the message
       const char* data_buffer = reinterpret_cast<const char*>(const_cast<const void*>(data_buffer_));
@@ -155,7 +155,7 @@ class execution_context
       shmemx_am_reply(two_sided_reply_handler_id_, const_cast<char*>(serialized_reply.data()), serialized_reply.size(), token);
     }
 
-    static void two_sided_reply_handler(void *data_buffer_, size_t buffer_size, int calling_pe, shmemx_am_token_t token)
+    inline static void two_sided_reply_handler(void *data_buffer_, size_t buffer_size, int calling_pe, shmemx_am_token_t token)
     {
       // deserialize the reply
       const char* data_buffer = reinterpret_cast<const char*>(const_cast<const void*>(data_buffer_));
@@ -210,7 +210,7 @@ class execution_context
         }
     
         std::mutex mutex_;
-        std::atomic<int> counter_;
+        int counter_;
         std::unordered_map<int, std::promise<T>> promises_;
     };
 
