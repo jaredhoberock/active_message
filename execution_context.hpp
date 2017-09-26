@@ -47,8 +47,9 @@ class execution_context
       shmem_init();
 
       // register handlers
-      shmemx_am_attach(handler_id_, two_sided_active_message_handler);
-      shmemx_am_attach(reply_handler_id_, two_sided_active_message_reply_handler);
+      shmemx_am_attach(one_sided_request_handler_id_, one_sided_request_handler);
+      shmemx_am_attach(two_sided_request_handler_id_, two_sided_request_handler);
+      shmemx_am_attach(two_sided_reply_handler_id_,   two_sided_reply_handler);
 
       // begin polling
       polling_thread_ = std::thread([this]
@@ -64,6 +65,7 @@ class execution_context
     ~execution_context()
     {
       continue_polling_ = false;
+
       polling_thread_.join();
 
       // XXX note that we don't call shmem_finalize() because it may already have been shutdown
@@ -73,14 +75,36 @@ class execution_context
     {
       return shmem_n_pes();
     }
+    
+    inline void wait_for_all()
+    {
+      shmemx_am_quiet();
+    }
 
     template<class Function, class... Args,
              __REQUIRES(can_serialize_all<Function,Args...>::value),
              __REQUIRES(can_deserialize_all<Function,Args...>::value),
-             __REQUIRES(is_invocable<Function,typename std::decay<Args>::type...>::value)
+             __REQUIRES(is_invocable<typename std::decay<Function>::type,typename std::decay<Args>::type...>::value)
+            >
+    void one_sided_execute(std::size_t node, Function&& f, Args&&... args)
+    {
+      // create a message
+      active_message message(decay_copy(std::forward<Function>(f)), decay_copy(std::forward<Args>(args))...);
+
+      // serialize the message
+      std::string serialized_message = to_string(message);
+
+      // transmit the serialization
+      shmemx_am_request(node, one_sided_request_handler_id_, const_cast<char*>(serialized_message.data()), serialized_message.size());
+    }
+
+    template<class Function, class... Args,
+             __REQUIRES(can_serialize_all<Function,Args...>::value),
+             __REQUIRES(can_deserialize_all<Function,Args...>::value),
+             __REQUIRES(is_invocable<typename std::decay<Function>::type,typename std::decay<Args>::type...>::value)
             >
     std::future<invoke_result_t<Function,typename std::decay<Args>::type...>>
-      two_sided_execute(std::size_t node, Function f, Args&&... args)
+      two_sided_execute(std::size_t node, Function&& f, Args&&... args)
     {
       using result_type = invoke_result_t<Function,typename std::decay<Args>::type...>;
 
@@ -88,23 +112,34 @@ class execution_context
       std::pair<int, std::future<result_type>> id_and_future = unfulfilled_promises<result_type>().add();
 
       // create a message
-      two_sided_active_message message(f, std::make_tuple(decay_copy(std::forward<Args>(args))...), &fulfill_promise<result_type>, std::make_tuple(id_and_future.first));
+      two_sided_active_message message(decay_copy(std::forward<Function>(f)), std::make_tuple(decay_copy(std::forward<Args>(args))...), &fulfill_promise<result_type>, std::make_tuple(id_and_future.first));
 
       // serialize the message
       std::string serialized_message = to_string(message);
 
       // transmit the serialization
-      shmemx_am_request(node, handler_id_, const_cast<char*>(serialized_message.data()), serialized_message.size());
+      shmemx_am_request(node, two_sided_request_handler_id_, const_cast<char*>(serialized_message.data()), serialized_message.size());
 
       // return the future
       return std::move(id_and_future.second);
     }
 
   private:
-    const static int handler_id_ = 0;
-    const static int reply_handler_id_ = 1;
+    const static int one_sided_request_handler_id_ = 0;
+    const static int two_sided_request_handler_id_ = 1;
+    const static int two_sided_reply_handler_id_   = 2;
 
-    static void two_sided_active_message_handler(void* data_buffer_, size_t buffer_size, int calling_pe, shmemx_am_token_t token)
+    static void one_sided_request_handler(void* data_buffer_, size_t buffer_size, int calling_pe, shmemx_am_token_t token)
+    {
+      // deserialize the message
+      const char* data_buffer = reinterpret_cast<const char*>(const_cast<const void*>(data_buffer_));
+      active_message message = from_string<active_message>(data_buffer, buffer_size);
+
+      // activate the message and discard the result
+      message.activate();
+    }
+
+    static void two_sided_request_handler(void* data_buffer_, size_t buffer_size, int calling_pe, shmemx_am_token_t token)
     {
       // deserialize the message
       const char* data_buffer = reinterpret_cast<const char*>(const_cast<const void*>(data_buffer_));
@@ -117,10 +152,10 @@ class execution_context
       std::string serialized_reply = to_string(reply);
 
       // transmit the serialization
-      shmemx_am_reply(reply_handler_id_, const_cast<char*>(serialized_reply.data()), serialized_reply.size(), token);
+      shmemx_am_reply(two_sided_reply_handler_id_, const_cast<char*>(serialized_reply.data()), serialized_reply.size(), token);
     }
 
-    static void two_sided_active_message_reply_handler(void *data_buffer_, size_t buffer_size, int calling_pe, shmemx_am_token_t token)
+    static void two_sided_reply_handler(void *data_buffer_, size_t buffer_size, int calling_pe, shmemx_am_token_t token)
     {
       // deserialize the reply
       const char* data_buffer = reinterpret_cast<const char*>(const_cast<const void*>(data_buffer_));
