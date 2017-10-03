@@ -30,9 +30,11 @@
 #include <utility>
 #include <type_traits>
 
+#include "integer_sequence.hpp"
+
 
 template<size_t... Indices, class T, class... Ts>
-static std::tuple<Ts...> tail_impl(std::index_sequence<Indices...>, const std::tuple<T,Ts...>& t)
+static std::tuple<Ts...> tail_impl(index_sequence<Indices...>, const std::tuple<T,Ts...>& t)
 {
   return std::tuple<Ts...>(std::get<1 + Indices>(t)...);
 }
@@ -40,20 +42,30 @@ static std::tuple<Ts...> tail_impl(std::index_sequence<Indices...>, const std::t
 template<class T, class... Ts>
 static std::tuple<Ts...> tail(const std::tuple<T,Ts...>& t)
 {
-  return tail_impl(std::make_index_sequence<sizeof...(Ts)>(), t);
+  return tail_impl(make_index_sequence<sizeof...(Ts)>(), t);
 }
 
 template<size_t... Indices, class Function, class Tuple>
-static auto apply_impl(std::index_sequence<Indices...>, Function&& f, Tuple&& t)
+static auto apply_impl(index_sequence<Indices...>, Function&& f, Tuple&& t) ->
+  decltype(
+    std::forward<Function>(f)(std::get<Indices>(std::forward<Tuple>(t))...)
+  )
 {
   return std::forward<Function>(f)(std::get<Indices>(std::forward<Tuple>(t))...);
 }
 
 template<class Function, class Tuple>
-static auto apply(Function&& f, Tuple&& t)
+static auto apply(Function&& f, Tuple&& t) ->
+  decltype(
+    apply_impl(
+      make_index_sequence<std::tuple_size<typename std::decay<Tuple>::type>::value>(),
+      std::forward<Function>(f),
+      std::forward<Tuple>(t)
+    )
+  )
 {
-  static constexpr size_t num_args = std::tuple_size<std::decay_t<Tuple>>::value;
-  return apply_impl(std::make_index_sequence<num_args>(), std::forward<Function>(f), std::forward<Tuple>(t));
+  static constexpr size_t num_args = std::tuple_size<typename std::decay<Tuple>::type>::value;
+  return apply_impl(make_index_sequence<num_args>(), std::forward<Function>(f), std::forward<Tuple>(t));
 }
 
 
@@ -107,7 +119,7 @@ using apply_result_t = decltype(apply(std::declval<Function>(), std::declval<Tup
 
 
 template<class T, class Tuple, std::size_t... I>
-constexpr T make_from_tuple_impl(Tuple&& t, std::index_sequence<I...>)
+constexpr T make_from_tuple_impl(Tuple&& t, index_sequence<I...>)
 {
   return T(std::get<I>(std::forward<Tuple>(t))...);
 }
@@ -116,6 +128,6 @@ constexpr T make_from_tuple_impl(Tuple&& t, std::index_sequence<I...>)
 template<class T, class Tuple>
 constexpr T make_from_tuple(Tuple&& t)
 {
-  return make_from_tuple_impl<T>(std::forward<Tuple>(t), std::make_index_sequence<std::tuple_size<std::decay_t<Tuple>>::value>{});
+  return make_from_tuple_impl<T>(std::forward<Tuple>(t), make_index_sequence<std::tuple_size<typename std::decay<Tuple>::type>::value>{});
 }
 

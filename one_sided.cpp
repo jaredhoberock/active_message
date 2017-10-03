@@ -24,7 +24,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// $ ./openshmem-am-root/bin/oshc++ -std=c++14 one_sided.cpp 
+// $ ./openshmem-am-root/bin/oshc++ -std=c++11 one_sided.cpp 
 // $ ./openshmem-am-root/bin/oshrun ./a.out -n 2
 // Hello, world from PE 1 with value 7!
 // Hello, world from PE 0 with value 13!
