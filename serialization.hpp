@@ -31,6 +31,7 @@
 #include <string>
 #include <typeinfo>
 #include <sstream>
+#include <cstring>
 #include "string_view_stream.hpp"
 #include "tuple.hpp"
 
@@ -434,5 +435,12 @@ T from_string(const char* string, std::size_t size)
   ar(result);
 
   return result;
+}
+
+
+template<class T>
+T from_string(const char* string)
+{
+  return from_string<T>(string, std::strlen(string));
 }
 
